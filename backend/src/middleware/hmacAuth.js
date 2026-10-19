@@ -23,6 +23,7 @@ export class HmacAuthError extends Error {
  * Requires X-Lodestar-Signature header matching HMAC-SHA256(body, secret).
  */
 export function hmacAuth(req, res, next) {
+  // #567: include X-Lodestar-Timestamp in signed material to prevent replays.
   const signature = req.headers['x-lodestar-signature'];
   if (!signature || typeof signature !== 'string') {
     logger.warn({ path: req.path }, 'Missing X-Lodestar-Signature header');
@@ -36,7 +37,9 @@ export function hmacAuth(req, res, next) {
   let sigBuf;
   let expBuf;
   try {
-    const body = JSON.stringify(req.body);
+    // #566: prefer the raw bytes captured by express.json({ verify })
+    const body =
+      req.rawBody ?? JSON.stringify(req.body);
     expected = crypto
       .createHmac('sha256', config.server.secret)
       .update(body)
